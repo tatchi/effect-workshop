@@ -2,7 +2,7 @@ import { Effect, Context, Layer } from "effect";
 import * as T from "../../testDriver";
 
 class Foo extends Context.Tag("Foo")<Foo, { readonly bar: string }>() {
-  static readonly Live = Layer.succeed(Foo, { bar: "imFromContext!" });
+  static readonly Live = Layer.succeed(this, { bar: "imFromContext!" });
 }
 
 // Exercise 1
@@ -10,7 +10,8 @@ class Foo extends Context.Tag("Foo")<Foo, { readonly bar: string }>() {
 // Get the `Foo` service from context manually :)
 
 const test1 = Effect.gen(function* (_) {
-  const foo = { bar: "hint: look at Effect.context" };
+  const foo = yield* _(Foo);
+  // const context = yield* _(Effect.context<Foo>());
   return foo.bar;
 }).pipe(Effect.provide(Foo.Live));
 
@@ -47,6 +48,7 @@ declare const nextIntBetween: (
 ) => Effect.Effect<number, never, Random>;
 
 const test2 = Effect.gen(function* (_) {
+  const { nextInt, nextBool, nextIntBetween } = yield* _(Random);
   const int = yield* _(nextInt);
   const bool = yield* _(nextBool);
   const intBetween = yield* _(nextIntBetween(10, 20));
