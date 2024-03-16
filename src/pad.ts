@@ -1,23 +1,11 @@
-import { Console, Effect, Layer, Schedule, pipe } from "effect";
+import { Effect } from "effect";
 
-const layer1 = Layer.effectDiscard(
-  Effect.gen(function* (_) {
-    yield* _(
-      Effect.log("layer 1"),
-      Effect.repeat(Schedule.spaced("1 seconds"))
-    );
-  })
+const fail1 = Effect.fail("Oh uh!");
+const fail2 = Effect.fail("Oh no!");
+
+const program = Effect.all([fail1, fail2]).pipe(
+  Effect.asUnit,
+  Effect.parallelErrors
 );
 
-const layer2 = Layer.effectDiscard(
-  Effect.gen(function* (_) {
-    yield* _(
-      Effect.log("layer 2"),
-      Effect.repeat(Schedule.spaced("1 seconds"))
-    );
-  })
-);
-
-const main = pipe(Layer.merge(layer1, layer2), Layer.launch);
-
-Effect.runPromise(main);
+Effect.runPromise(program).then(console.log, console.error);
