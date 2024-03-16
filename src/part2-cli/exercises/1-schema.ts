@@ -7,31 +7,52 @@ import { ParseError } from "@effect/schema/ParseResult";
 // Exercise 1
 // Make a schema that parses to each of the following types
 
+const res = Bun.pathToFileURL("/path/to/file.txt");
+
 type A = {
   readonly bool: boolean;
   readonly num: number;
   readonly str: string;
   readonly sym: symbol;
 };
+
+const A = S.struct({
+  bool: S.boolean,
+  num: S.number,
+  str: S.string,
+  sym: S.symbol,
+});
+
 type B = "a" | "b" | "c";
+
+const B = S.literal("a", "b", "c");
+
 type C = {
   readonly code: `${B}-${B}-${number}`;
   readonly data: readonly [ReadonlyArray<A>, keyof A];
 };
+
+const Cs = S.struct({
+  code: S.templateLiteral(B, S.literal("-"), B, S.literal("-"), S.number),
+  data: S.tuple(S.array(A), S.keyof(A)),
+});
+
 type D = {
   readonly value: string;
   readonly next: D | null;
 };
+
+const D: S.Schema<D> = S.struct({
+  value: S.string,
+  next: S.nullable(S.suspend(() => D)),
+});
+
 type E = {
   readonly ab: A | B;
   readonly partial: Partial<A>;
 };
 
-const A = S.never;
-const B = S.never;
-const C = S.never;
-const D = S.never;
-const E = S.never;
+const E = S.struct({ ab: S.union(A, B), partial: S.partial(A) });
 
 type AllTrue<T extends boolean[]> = T extends [infer First, ...infer Rest]
   ? First extends true
@@ -54,15 +75,32 @@ type AllTests = AllTrue<[TestA, TestB, TestC, TestD, TestE]>;
 // First write a schema that transforms a string to a `URL` (I've provide a URL schema for you)
 // if you can: consider how to handle the URL constructor throwing an error
 
+type URL = import("url").URL;
 const URLSchema = S.declare((input): input is URL => input instanceof URL);
 
-const URLFromString: S.Schema<URL, string> = S.any;
+const URLFromString = S.transformOrFail(
+  S.string,
+  URLSchema,
+  (input, _, ast) =>
+    ParseResult.try({
+      try: () => new URL(input),
+      catch: (e) =>
+        ParseResult.type(
+          ast,
+          input,
+          e instanceof Error ? e.message : undefined
+        ),
+    }),
+  (url) => ParseResult.succeed(url.toString())
+);
 
 // Now write a schema that filters out URLs that are not https
-const IsHttps: S.Schema<URL, URL> = S.any;
+const IsHttps: S.Schema<URL, URL> = URLSchema.pipe(
+  S.filter((url) => url.protocol === "https:")
+);
 
 // Now using those, create a schema that can decode a string and asserts that it is a valid https URL
-const HttpsURL: S.Schema<URL, string> = S.any;
+const HttpsURL = S.compose(URLFromString, IsHttps);
 
 const goodInput = "https://example.com";
 const badInput = "http://example.com";
