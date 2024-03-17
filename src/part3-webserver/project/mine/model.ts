@@ -29,7 +29,14 @@ export const StartupMessage = S.struct({
 
 export type StartupMessage = S.Schema.To<typeof StartupMessage>;
 
-export const ServerIncomingMessage = StartupMessage;
+export const ServerIncomingMessage = S.union(
+  S.struct({
+    _tag: S.literal("message"),
+    message: S.string,
+  })
+);
+
+export type ServerIncomingMessage = S.Schema.To<typeof ServerIncomingMessage>;
 
 export const ServerOutgoingMessage = S.union(
   S.struct({

@@ -36,9 +36,9 @@ wss.on("connection", (ws: WebSocket) => {
   ws.on("message", (data) => {
     try {
       const message: unknown = JSON.parse(data.toString());
-      const parsedMessage = S.decodeUnknownSync(M.ServerIncomingMessage)(
-        message
-      );
+      const parsedMessage = S.decodeUnknownSync(
+        S.union(M.StartupMessage, M.ServerIncomingMessage)
+      )(message);
 
       switch (parsedMessage._tag) {
         case "startup": {
@@ -63,6 +63,23 @@ wss.on("connection", (ws: WebSocket) => {
             timeConnected: Date.now(),
           });
           broadcastMessage({ _tag: "join", name, color });
+          break;
+        }
+
+        case "message": {
+          if (connectionName) {
+            const conn = currentConnections.get(connectionName);
+
+            if (conn) {
+              broadcastMessage({
+                _tag: "message",
+                name: conn.name,
+                color: conn.color,
+                message: parsedMessage.message,
+                timestamp: Date.now(),
+              });
+            }
+          }
           break;
         }
       }
