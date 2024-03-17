@@ -49,7 +49,7 @@ Stream.fromEffect(Effect.sync(() => Date.now()));
 // But really you do the processing the stream as it is emitted, not after it is complete.
 
 // consider this stream:
-const spacedInts = Stream.asyncInterrupt<number>((emit) => {
+const spacedInts = Stream.async<number>((emit) => {
   let n = 0;
   const interval = setInterval(() => {
     if (n > 4) {
@@ -59,7 +59,7 @@ const spacedInts = Stream.asyncInterrupt<number>((emit) => {
     n++;
     emit(Effect.succeed(Chunk.of(n)));
   }, 250);
-  return Either.left(Effect.sync(() => clearInterval(interval)));
+  // return Either.left(Effect.sync(() => clearInterval(interval)));
 });
 
 // What is a chunk? A collection of values like an array.
@@ -84,10 +84,13 @@ const one = Effect.gen(function* (_) {
 
 // However if we do our 'processing' inside the stream, we can do things with the values as they are emitted.
 const two = Effect.gen(function* (_) {
-  yield* _(
+  return yield* _(
     spacedInts,
+    Stream.transduce(
+      Sink.collectAllN<number>(3).pipe(Sink.filterInput((n) => n < 5))
+    ),
     Stream.tap((n) => Console.log(n)),
-    Stream.runDrain
+    Stream.runCollect
   );
 });
 
@@ -98,11 +101,11 @@ Effect.runPromise(two);
 // consumes a `Stream<In>`, maybe fails with an error `E`, and requires a context `R`
 // and that will produce a value `A` and maybe have leftover values of type `L`
 
-const sink1 = pipe(
-  spacedInts,
-  Stream.run(Sink.sum),
-  Effect.andThen((sum) => Console.log(sum))
-);
+// const sink1 = pipe(
+//   spacedInts,
+//   Stream.run(Sink.((n) => n > 2)),
+//   Effect.andThen((sum) => Console.log(sum))
+// );
 
 // Effect.runPromise(sink1);
 
