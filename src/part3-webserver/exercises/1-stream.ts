@@ -8,6 +8,7 @@ import {
   identity,
 } from "effect";
 import fs from "node:fs";
+import path from "node:path";
 import * as T from "../../testDriver";
 
 // Exercise 1
@@ -18,7 +19,11 @@ const stream = Stream.make(1, 2, 3, 4, 5).pipe(
 
 const droppedStream = stream.pipe(Stream.drop(2));
 
-Effect.runSync(Stream.runCollect(droppedStream));
+Effect.runSync(
+  Stream.runCollect(droppedStream).pipe(
+    Effect.tap((a) => Console.log(`length: ${Chunk.size(a)}`))
+  )
+);
 
 // What happens when we run the stream?
 
@@ -36,7 +41,21 @@ class FileStreamError {
   constructor(public error: unknown) {}
 }
 
-const testOne: Stream.Stream<string, FileStreamError> = Stream.empty;
+const testOne: Stream.Stream<string, FileStreamError> = Stream.async((emit) => {
+  const fileStream = fs.createReadStream(path.resolve(__dirname, "test.txt"));
+  fileStream.on("data", (chunk) => {
+    emit(Effect.succeed(Chunk.of(chunk.toString())));
+  });
+
+  fileStream.on("error", (error) => {
+    emit(Effect.fail(Option.some(new FileStreamError(error))));
+  });
+
+  fileStream.on("end", () => {
+    fileStream.close();
+    emit(Effect.fail(Option.none()));
+  });
+});
 
 await T.testRunAssert(
   1,
@@ -53,14 +72,14 @@ const powersOfTwo = Stream.make(1, 1, 1, 1, 2, 2, 3, 3, 3, 5, 5, 5, 5, 7);
 
 // Your job is to map this stream that emits a value only when it differs from the previous value.
 
-const testTwo = powersOfTwo;
+const testTwo = powersOfTwo.pipe(Stream.changes);
 
-// await T.testRunAssert(
-//   2,
-//   Stream.runCollect(testTwo).pipe(
-//     Effect.andThen((chunk) => Chunk.toArray(chunk))
-//   ),
-//   {
-//     success: [1, 2, 3, 5, 7],
-//   }
-// );
+await T.testRunAssert(
+  2,
+  Stream.runCollect(testTwo).pipe(
+    Effect.andThen((chunk) => Chunk.toArray(chunk))
+  ),
+  {
+    success: [1, 2, 3, 5, 7],
+  }
+);
