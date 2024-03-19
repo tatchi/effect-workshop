@@ -1,6 +1,7 @@
 import { createServer } from "http";
 import { Config, Context, Effect, Layer } from "effect";
 import * as M from "./model";
+import * as C from "./config";
 import { WebSocketServer } from "ws";
 
 export class HttpServer extends Context.Tag("HttpServer")<
@@ -32,35 +33,33 @@ export class CurrentConnections extends Context.Tag("CurrentConnections")<
   static readonly Live = Layer.sync(CurrentConnections, () => new Map());
 }
 
-export const ListenLive = Layer.effectDiscard(
-  Effect.gen(function* (_) {
-    const port = yield* _(
-      Config.integer("PORT").pipe(Config.withDefault(3000))
-    );
+// export const ListenLive = Layer.effectDiscard(
+//   Effect.gen(function* (_) {
+//     const port = yield* _(C.PORT);
 
-    const server = yield* _(HttpServer);
-    const currentConnections = yield* _(CurrentConnections);
+//     const server = yield* _(HttpServer);
+//     const currentConnections = yield* _(CurrentConnections);
 
-    yield* _(
-      Effect.sync(() =>
-        server.listen(port, () => console.log("Server started on port ", port))
-      )
-    );
+//     yield* _(
+//       Effect.sync(() =>
+//         server.listen(port, () => console.log("Server started on port ", port))
+//       )
+//     );
 
-    yield* _(
-      Effect.sync(() => {
-        let lastPrintedNbConnections: number | null = null;
+//     yield* _(
+//       Effect.sync(() => {
+//         let lastPrintedNbConnections: number | null = null;
 
-        setInterval(() => {
-          if (lastPrintedNbConnections !== currentConnections.size) {
-            lastPrintedNbConnections = currentConnections.size;
-            console.log("Current connections:", currentConnections.size);
-          }
-        }, 1000);
-      })
-    );
-  })
-);
+//         setInterval(() => {
+//           if (lastPrintedNbConnections !== currentConnections.size) {
+//             lastPrintedNbConnections = currentConnections.size;
+//             console.log("Current connections:", currentConnections.size);
+//           }
+//         }, 1000);
+//       })
+//     );
+//   })
+// );
 
 export const getAvailableColors = Effect.gen(function* (_) {
   const currentConnections = yield* _(CurrentConnections);
