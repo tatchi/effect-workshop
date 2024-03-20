@@ -1,5 +1,5 @@
 import { createServer } from "http";
-import { Config, Context, Effect, Layer } from "effect";
+import { Config, Context, Effect, HashMap, Layer, Ref } from "effect";
 import * as M from "./model";
 import * as C from "./config";
 import { WebSocketServer } from "ws";
@@ -28,9 +28,12 @@ export class WSSServer extends Context.Tag("WSSServer")<
 
 export class CurrentConnections extends Context.Tag("CurrentConnections")<
   CurrentConnections,
-  Map<string, M.WebSocketConnection>
+  Ref.Ref<HashMap.HashMap<string, M.WebSocketConnection>>
 >() {
-  static readonly Live = Layer.sync(CurrentConnections, () => new Map());
+  static readonly Live = Layer.effect(
+    CurrentConnections,
+    Ref.make(HashMap.empty<string, M.WebSocketConnection>())
+  );
 }
 
 // export const ListenLive = Layer.effectDiscard(
@@ -63,12 +66,13 @@ export class CurrentConnections extends Context.Tag("CurrentConnections")<
 
 export const getAvailableColors = Effect.gen(function* (_) {
   const currentConnections = yield* _(CurrentConnections);
-  const currentColors = Array.from(currentConnections.values()).map(
+  const connections = yield* _(Ref.get(currentConnections));
+  const userColors = Array.from(HashMap.values(connections)).map(
     (conn) => conn.color
   );
 
   const availableColors = M.colors.filter(
-    (color) => !currentColors.includes(color)
+    (color) => !userColors.includes(color)
   );
 
   return availableColors;

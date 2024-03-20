@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Effect, HashMap, Layer, Option, Ref } from "effect";
 import { CurrentConnections, WSSServer } from "./shared";
 import * as M from "./model";
 import * as S from "@effect/schema/Schema";
@@ -7,12 +7,16 @@ export const Live = Layer.effectDiscard(
   Effect.gen(function* (_) {
     const wss = yield* _(WSSServer);
     const currentConnections = yield* _(CurrentConnections);
+    const connections = yield* _(Ref.get(currentConnections));
     function broadcastMessage(message: M.ServerOutgoingMessage) {
       const msg = JSON.stringify(message);
 
-      currentConnections.forEach((conn) => {
-        conn._rawWS.send(msg);
-      });
+      // connections is always empty
+      connections.pipe(
+        HashMap.forEach((conn) => {
+          conn._rawWS.send(msg);
+        })
+      );
     }
 
     wss.on("connection", (ws: WebSocket) => {
@@ -28,7 +32,7 @@ export const Live = Layer.effectDiscard(
             case "startup": {
               const { color, name } = parsedMessage;
 
-              if (!M.colors.includes(color) || currentConnections.has(name)) {
+              if (!M.colors.includes(color) || HashMap.has(connections, name)) {
                 ws.close(); // Close the connection if the color is not available or the name is already taken
                 console.log(
                   "Closing because color not available or user already connected"
@@ -40,25 +44,28 @@ export const Live = Layer.effectDiscard(
               connectionName = name;
               console.log(`New connection: ${name}`);
 
-              currentConnections.set(name, {
-                _rawWS: ws,
-                name,
-                color,
-                timeConnected: Date.now(),
-              });
+              // We'd need to runn the effect
+              Ref.update(currentConnections, (connections) =>
+                HashMap.set(connections, name, {
+                  _rawWS: ws,
+                  name,
+                  color,
+                  timeConnected: Date.now(),
+                })
+              );
               broadcastMessage({ _tag: "join", name, color });
               break;
             }
 
             case "message": {
               if (connectionName) {
-                const conn = currentConnections.get(connectionName);
+                const conn = HashMap.get(connections, connectionName);
 
-                if (conn) {
+                if (Option.isSome(conn)) {
                   broadcastMessage({
                     _tag: "message",
-                    name: conn.name,
-                    color: conn.color,
+                    name: conn.value.name,
+                    color: conn.value.color,
                     message: parsedMessage.message,
                     timestamp: Date.now(),
                   });
@@ -74,14 +81,16 @@ export const Live = Layer.effectDiscard(
 
       ws.on("close", () => {
         if (connectionName) {
-          const conn = currentConnections.get(connectionName);
-          if (conn) {
+          const conn = HashMap.get(connections, connectionName);
+          if (Option.isSome(conn)) {
             broadcastMessage({
               _tag: "leave",
-              name: conn.name,
-              color: conn.color,
+              name: conn.value.name,
+              color: conn.value.color,
             });
-            currentConnections.delete(connectionName);
+            Ref.update(currentConnections, (connections) =>
+              HashMap.remove(connections, connectionName)
+            );
             console.log(`Connection closed: ${connectionName}`);
           }
         }
