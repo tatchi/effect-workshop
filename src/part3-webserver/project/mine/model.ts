@@ -1,4 +1,6 @@
+import type { ParseError } from "@effect/schema/ParseResult";
 import * as S from "@effect/schema/Schema";
+import { Data, type Effect } from "effect";
 
 export const colors = [
   "red",
@@ -19,6 +21,10 @@ export interface WebSocketConnection {
   readonly name: string;
   readonly color: Color;
   readonly timeConnected: number;
+  readonly send: (
+    message: ServerOutgoingMessage
+  ) => Effect.Effect<void, ParseError>;
+  readonly close: Effect.Effect<void>;
 }
 
 export const StartupMessage = S.struct({
@@ -29,6 +35,20 @@ export const StartupMessage = S.struct({
 
 export type StartupMessage = S.Schema.To<typeof StartupMessage>;
 
+export class BadStartupMessageError extends Data.TaggedError(
+  "BadStartupMessage"
+)<{
+  readonly error:
+    | {
+        readonly _tag: "parseError";
+        readonly parseError: ParseError;
+      }
+    | {
+        readonly _tag: "colorAlreadyTaken";
+        readonly color: Color;
+      };
+}> {}
+
 export const ServerIncomingMessage = S.union(
   S.struct({
     _tag: S.literal("message"),
@@ -37,6 +57,12 @@ export const ServerIncomingMessage = S.union(
 );
 
 export type ServerIncomingMessage = S.Schema.To<typeof ServerIncomingMessage>;
+
+export class UnknownIncomingMessageError extends Data.TaggedError(
+  "UnknownIncomingMessage"
+)<{
+  readonly parseError: ParseError | Error;
+}> {}
 
 export const ServerOutgoingMessage = S.union(
   S.struct({
