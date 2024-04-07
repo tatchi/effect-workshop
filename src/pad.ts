@@ -1,4 +1,4 @@
-import { Console, Effect, Fiber, Queue, Ref, Schedule } from "effect";
+import { Console, Effect, Fiber, Queue, Ref, Schedule, Stream } from "effect";
 
 const fiber = (queue: Queue.Dequeue<string>) =>
   Effect.gen(function* (_) {
@@ -6,7 +6,7 @@ const fiber = (queue: Queue.Dequeue<string>) =>
     let res = yield* _(Queue.take(queue));
 
     yield* _(Console.log(`Got ${res} from queue`));
-  }).pipe(Effect.forever);
+  });
 
 // const program = Effect.gen(function* (_) {
 //   const queue = yield* _(Queue.unbounded<string>());
@@ -49,24 +49,54 @@ const fiber = (queue: Queue.Dequeue<string>) =>
 //   yield* _(Console.log("Stop program"));
 // });
 
+// const program = Effect.gen(function* (_) {
+//   const counter = yield* _(Ref.make(1));
+//   const queue = yield* _(Queue.unbounded<string>());
+
+//   const reader = fiber(queue);
+
+//   const sendEffect = Effect.gen(function* (_) {
+//     yield* _(Console.log("In sendEffect"));
+
+//     let count = yield* _(Ref.get(counter));
+
+//     yield* _(Queue.offer(queue, `Hello ${count}`));
+//     yield* _(Ref.update(counter, (c) => c + 1));
+//   }).pipe(Effect.repeat({ times: 2, schedule: Schedule.fixed(500) }));
+
+//   yield* _(Console.log("print before all"));
+
+//   yield* _(Effect.zip(reader, sendEffect, { concurrent: true }));
+//   yield* _(Console.log("Stop program"));
+// });
+
+const streamQueue = (queue: Queue.Dequeue<string>) =>
+  Effect.gen(function* (_) {
+    yield* _(
+      Stream.fromQueue(queue).pipe(
+        Stream.runForEach((s) => Console.log(`Got ${s}`))
+      )
+    );
+  });
+
 const program = Effect.gen(function* (_) {
   const counter = yield* _(Ref.make(1));
   const queue = yield* _(Queue.unbounded<string>());
 
-  const f1 = fiber(queue);
+  const reader = streamQueue(queue);
 
-  const sendEffect = Effect.gen(function* (_) {
-    yield* _(Console.log("In sendEffect"));
-
-    let count = yield* _(Ref.get(counter));
+  const writer = Effect.gen(function* (_) {
+    const count = yield* _(Ref.get(counter));
 
     yield* _(Queue.offer(queue, `Hello ${count}`));
+
     yield* _(Ref.update(counter, (c) => c + 1));
-  }).pipe(Effect.repeat({ times: 2, schedule: Schedule.fixed(500) }));
+  }).pipe(Effect.repeat({ times: 2, schedule: Schedule.fixed("1 seconds") }));
 
   yield* _(Console.log("print before all"));
 
-  yield* _(Effect.zip(f1, sendEffect, { concurrent: true }));
+  yield* _(Effect.zip(reader, writer, { concurrent: true }));
+
   yield* _(Console.log("Stop program"));
 });
 
