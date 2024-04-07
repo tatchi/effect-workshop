@@ -1,6 +1,6 @@
 import type { ParseError } from "@effect/schema/ParseResult";
 import * as S from "@effect/schema/Schema";
-import { Data, type Effect } from "effect";
+import { Data, Stream, type Effect, Queue } from "effect";
 
 export const colors = [
   "red",
@@ -21,9 +21,11 @@ export interface WebSocketConnection {
   readonly name: string;
   readonly color: Color;
   readonly timeConnected: number;
-  readonly send: (
-    message: ServerOutgoingMessage
-  ) => Effect.Effect<void, ParseError>;
+  readonly messages: Stream.Stream<
+    ServerIncomingMessage,
+    UnknownIncomingMessageError
+  >;
+  readonly sendQueue: Queue.Enqueue<ServerOutgoingMessage>;
   readonly close: Effect.Effect<void>;
 }
 

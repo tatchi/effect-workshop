@@ -2,9 +2,13 @@ import {
   Chunk,
   Console,
   Effect,
+  Fiber,
+  FiberSet,
   HashMap,
   Layer,
   Option,
+  PubSub,
+  Queue,
   Ref,
   Schedule,
   Stream,
@@ -14,7 +18,7 @@ import { CurrentConnections, WSSServer, getAvailableColors } from "./shared";
 import { WebSocket, type WebSocketServer } from "ws";
 import * as M from "./model";
 import * as S from "@effect/schema/Schema";
-import { parseError, type ParseError } from "@effect/schema/ParseResult";
+import { ParseError } from "@effect/schema/ParseResult";
 
 const createConnectionsStream = (wss: WebSocketServer) =>
   Stream.async<WebSocket, Error>((emit) => {
@@ -37,7 +41,8 @@ const parseStartupMessage = pipe(S.parseJson(M.StartupMessage), S.decode);
 
 const initializeConnection = (
   ws: WebSocket,
-  publish: (message: M.ServerOutgoingMessage) => Effect.Effect<void>
+  sendToWsQueue: Queue.Dequeue<M.ServerOutgoingMessage>,
+  broadcastQueue: Queue.Enqueue<M.ServerOutgoingMessage>
 ) =>
   Effect.gen(function* (_) {
     console.log("Initializing connection");
@@ -72,27 +77,7 @@ const initializeConnection = (
     );
 
     yield* _(Console.log(`New connection: ${name} (${color})`));
-    yield* _(publish({ _tag: "join", name, color }));
-
-    const connection: M.WebSocketConnection = {
-      _rawWS: ws,
-      name,
-      color,
-      timeConnected: Date.now(),
-      send: (message) =>
-        pipe(
-          message,
-          encodeMessage,
-          Effect.andThen((msg) => Effect.sync(() => ws.send(msg)))
-        ),
-      close: Effect.sync(() => ws.close()),
-    };
-
-    yield* _(
-      Ref.update(connectionsRef, (connections) =>
-        HashMap.set(connections, name, connection)
-      )
-    );
+    yield* _(Queue.offer(broadcastQueue, { _tag: "join", name, color }));
 
     const rawMessagesStream = Stream.async<string, Error>((emit) => {
       ws.on("message", (data) => {
@@ -111,7 +96,10 @@ const initializeConnection = (
       Stream.mapEffect(parseMessage),
       Stream.mapError(
         (parseError) => new M.UnknownIncomingMessageError({ parseError })
-      ),
+      )
+    );
+
+    const messagesWithInfoStream = parsedMessagesStream.pipe(
       Stream.map((message) => {
         const messageToPublish: M.ServerOutgoingMessage = {
           ...message,
@@ -121,51 +109,114 @@ const initializeConnection = (
         };
         return messageToPublish;
       }),
-      // Stream.onDone ?
       Stream.concat(Stream.make({ _tag: "leave", name, color } as const)),
       Stream.tapError((err) => Console.error(err))
     );
 
-    return yield* _(Stream.runForEach(parsedMessagesStream, publish));
+    const broadcastFiber = yield* _(
+      Stream.runForEach(messagesWithInfoStream, (message) =>
+        Queue.offer(broadcastQueue, message)
+      ),
+      Effect.fork
+    );
+
+    const manualSendQueue = yield* _(
+      Queue.unbounded<M.ServerOutgoingMessage>()
+    );
+
+    const toSendStream = Stream.fromQueue(manualSendQueue).pipe(
+      Stream.merge(Stream.fromQueue(sendToWsQueue))
+    );
+
+    const sendToWsFiber = yield* _(
+      Stream.runForEach(toSendStream, (message) =>
+        encodeMessage(message).pipe(Effect.andThen((msg) => ws.send(msg)))
+      ),
+      Effect.fork
+    );
+
+    const connection: M.WebSocketConnection = {
+      _rawWS: ws,
+      name,
+      color,
+      timeConnected: Date.now(),
+      messages: parsedMessagesStream,
+      sendQueue: manualSendQueue,
+      close: Effect.sync(() => ws.close()),
+    };
+
+    yield* _(Effect.addFinalizer(() => connection.close));
+
+    yield* _(
+      Ref.update(connectionsRef, (connections) =>
+        HashMap.set(connections, name, connection)
+      )
+    );
+
+    yield* _(Fiber.join(Fiber.zip(broadcastFiber, sendToWsFiber)));
   });
 
-export const Live = Layer.effectDiscard(
+export const Live = Layer.scopedDiscard(
   Effect.gen(function* (_) {
     const wss = yield* _(WSSServer);
     const connectionsRef = yield* _(CurrentConnections);
 
-    const publish = (message: M.ServerOutgoingMessage) =>
-      Effect.gen(function* (_) {
-        console.log("Publishing message", message);
-        const connections = yield* _(Ref.get(connectionsRef));
-        return yield* _(
-          Effect.forEach(HashMap.values(connections), (conn) =>
-            conn.send(message)
-          )
-        );
-      }).pipe(
-        Effect.catchAll((err) => Console.error(err)),
-        Effect.asUnit
-      );
+    const fiberSet = yield* _(
+      FiberSet.make<
+        void,
+        M.UnknownIncomingMessageError | M.BadStartupMessageError | ParseError
+      >()
+    );
+
+    const pubsub = yield* _(PubSub.unbounded<M.ServerOutgoingMessage>());
 
     const connectionsStream = createConnectionsStream(wss).pipe(
       Stream.tapError((err) => Console.error(err))
     );
 
-    yield* _(
-      Stream.runForEach(connectionsStream, (ws) =>
-        initializeConnection(ws, publish)
-      )
+    const initializeConnectionsFiber = yield* _(
+      connectionsStream,
+      Stream.runForEach((ws) =>
+        Effect.gen(function* (_) {
+          const subscription = yield* _(pubsub.subscribe);
+
+          const fiber = yield* _(
+            initializeConnection(ws, subscription, pubsub),
+            Effect.fork
+          );
+
+          yield* _(FiberSet.add(fiberSet, fiber));
+        })
+      ),
+      Effect.fork
     );
 
-    yield* _(
+    const connectionLogFiber = yield* _(
       Effect.gen(function* (_) {
         const connections = yield* _(Ref.get(connectionsRef));
+
         yield* _(
           Console.log(`Current connections: ${HashMap.size(connections)}`)
         );
+
+        HashMap.forEach(connections, (connection, name) => {
+          Effect.gen(function* (_) {
+            yield* _(
+              Console.log(
+                `Connection: ${name} (${connection.color}) - ${Math.floor(
+                  (Date.now() - connection.timeConnected) / 1000
+                )}s`
+              )
+            );
+          });
+        });
       }),
-      Effect.repeat(Schedule.spaced("2 seconds"))
+      Effect.repeat(Schedule.spaced("2 seconds")),
+      Effect.fork
+    );
+
+    yield* _(
+      Fiber.join(Fiber.zip(initializeConnectionsFiber, connectionLogFiber))
     );
   })
 );

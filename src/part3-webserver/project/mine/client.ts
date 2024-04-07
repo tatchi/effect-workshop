@@ -10,7 +10,7 @@ ws.on("open", () => {
   console.log("[Client] ws open");
   const message: M.StartupMessage = {
     _tag: "startup",
-    color: "magenta",
+    color: (process.argv[3] as M.Color) ?? "magenta",
     name: process.argv[2] ?? "Corentin",
   };
   ws.send(JSON.stringify(message), (err) => {
