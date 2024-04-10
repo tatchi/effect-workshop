@@ -1,14 +1,6 @@
 import { Resolver, Router, Rpc } from "@effect/rpc";
 import * as S from "@effect/schema/Schema";
-import {
-  Console,
-  Context,
-  Effect,
-  Layer,
-  ReadonlyArray,
-  Stream,
-  flow,
-} from "effect";
+import { Context, Effect } from "effect";
 
 function mainToHandler() {
   class Greet extends S.TaggedRequest<Greet>()("Greet", S.never, S.string, {
