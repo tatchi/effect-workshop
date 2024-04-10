@@ -63,7 +63,7 @@ type AllTrue<T extends boolean[]> = T extends [infer First, ...infer Rest]
   : true;
 type TestA = Types.Equals<A, S.Schema.To<typeof A>>;
 type TestB = Types.Equals<B, S.Schema.To<typeof B>>;
-type TestC = Types.Equals<C, S.Schema.To<typeof C>>;
+type TestC = Types.Equals<C, S.Schema.To<typeof Cs>>;
 type TestD = Types.Equals<D, S.Schema.To<typeof D>>;
 type TestE = Types.Equals<E, S.Schema.To<typeof E>>;
 

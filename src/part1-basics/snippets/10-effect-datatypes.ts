@@ -62,11 +62,11 @@ if (Either.isRight(e)) {
 if (Either.isLeft(e)) {
   e.left;
 }
-Either.map(e, (x) => x.length);
+Either.map(e, (x) => x);
 Either.mapLeft(e, (x) => x + 1);
 Either.mapBoth(e, {
   onLeft: (x) => x + 1,
-  onRight: (x) => x.length,
+  onRight: (x) => x,
 });
 Either.flatMap(e, (x) => Either.right(x + 1));
 Either.match(e, {

@@ -31,5 +31,6 @@ pipe(
   Layer.provide(SERVER.HttpServer.Live),
   Layer.provide(SERVER.CurrentConnections.Live),
   Layer.launch,
+  // @ts-expect-error fixed in my solution
   BunRuntime.runMain
 );

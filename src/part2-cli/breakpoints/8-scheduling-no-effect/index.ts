@@ -115,7 +115,7 @@ async function runRequest(
 ) {
   const abortController = new AbortController();
 
-  let timeout: NodeJS.Timeout | undefined = undefined;
+  let timeout: Timer | undefined = undefined;
 
   if (options?.timeout) {
     timeout = setTimeout(() => abortController.abort(), options.timeout);
