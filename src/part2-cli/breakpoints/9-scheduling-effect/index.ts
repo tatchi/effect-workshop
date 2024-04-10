@@ -81,7 +81,7 @@ export const DurationFromString = S.transformOrFail(
     ParseResult.try({
       try: () => Duration.decode(value as Duration.DurationInput),
       catch: (error) =>
-        ParseResult.type(ast, value, "String is not valid DurationInput"),
+        new ParseResult.Type(ast, value, "String is not valid DurationInput"),
     }),
   (duration) => ParseResult.succeed(`${Duration.toMillis(duration)} millis`)
 );

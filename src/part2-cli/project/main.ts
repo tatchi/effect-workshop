@@ -66,7 +66,8 @@ const URLFromString = S.transformOrFail(
   (value, _, ast) =>
     ParseResult.try({
       try: () => new URL(value),
-      catch: () => ParseResult.type(ast, value, "String is not a valid URL"),
+      catch: () =>
+        new ParseResult.Type(ast, value, "String is not a valid URL"),
     }),
   (url) => ParseResult.succeed(url.toString())
 ).pipe(S.identifier("URLFromString"));

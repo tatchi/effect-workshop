@@ -14,7 +14,7 @@ export const colors = [
 
 export const Color = S.literal(...colors);
 
-export type Color = S.Schema.To<typeof Color>;
+export type Color = S.Schema.Type<typeof Color>;
 
 export interface WebSocketConnection {
   readonly _rawWS: WebSocket;
@@ -35,7 +35,7 @@ export const StartupMessage = S.struct({
   name: S.string,
 });
 
-export type StartupMessage = S.Schema.To<typeof StartupMessage>;
+export type StartupMessage = S.Schema.Type<typeof StartupMessage>;
 
 export class BadStartupMessageError extends Data.TaggedError(
   "BadStartupMessage"
@@ -58,7 +58,7 @@ export const ServerIncomingMessage = S.union(
   })
 );
 
-export type ServerIncomingMessage = S.Schema.To<typeof ServerIncomingMessage>;
+export type ServerIncomingMessage = S.Schema.Type<typeof ServerIncomingMessage>;
 
 export class UnknownIncomingMessageError extends Data.TaggedError(
   "UnknownIncomingMessage"
@@ -78,14 +78,14 @@ export const ServerOutgoingMessage = S.union(
   S.struct({ _tag: S.literal("leave"), name: S.string, color: Color })
 );
 
-export type ServerOutgoingMessage = S.Schema.To<typeof ServerOutgoingMessage>;
+export type ServerOutgoingMessage = S.Schema.Type<typeof ServerOutgoingMessage>;
 
 export const AvailableColorsResponse = S.struct({
   _tag: S.literal("availableColors"),
   colors: S.array(Color),
 });
 
-export type AvailableColorsResponse = S.Schema.To<
+export type AvailableColorsResponse = S.Schema.Type<
   typeof AvailableColorsResponse
 >;
 

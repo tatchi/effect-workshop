@@ -54,14 +54,14 @@ const NumberFromStringSafe = Schema.transformOrFail(
   (string, _, ast) =>
     ParseResult.try({
       try: () => parseInt(string),
-      catch: (error) => ParseResult.type(ast, string),
+      catch: (error) => new ParseResult.Type(ast, string),
     }),
   (number) => ParseResult.succeed(number.toString())
 );
 
 // Its easy to dervice types from our schemas
-type Input = Schema.Schema.To<typeof NumberFromString>;
-type Output = Schema.Schema.From<typeof NumberFromString>;
+type Input = Schema.Schema.Type<typeof NumberFromString>;
+type Output = Schema.Schema.Encoded<typeof NumberFromString>;
 
 // Now lets look at how we can use this schema to validate and transform data.
 

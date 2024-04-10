@@ -32,7 +32,7 @@ export const StartupMessage = S.struct({
 
 export const StartupMessageFromJSON = S.parseJson(StartupMessage);
 
-export type StartupMessage = S.Schema.To<typeof StartupMessage>;
+export type StartupMessage = S.Schema.Type<typeof StartupMessage>;
 
 export class BadStartupMessageError extends Data.TaggedError(
   "BadStartupMessage"
@@ -57,7 +57,7 @@ export const ServerIncomingMessage = S.union(
 
 export const ServerIncomingMessageFromJSON = S.parseJson(ServerIncomingMessage);
 
-export type ServerIncomingMessage = S.Schema.To<typeof ServerIncomingMessage>;
+export type ServerIncomingMessage = S.Schema.Type<typeof ServerIncomingMessage>;
 
 export class UnknownIncomingMessageError extends Data.TaggedError(
   "UnknownIncomingMessage"
@@ -90,7 +90,7 @@ export const ServerOutgoingMessage = S.union(
   })
 );
 export const ServerOutgoingMessageFromJSON = S.parseJson(ServerOutgoingMessage);
-export type ServerOutgoingMessage = S.Schema.To<typeof ServerOutgoingMessage>;
+export type ServerOutgoingMessage = S.Schema.Type<typeof ServerOutgoingMessage>;
 
 export interface WebSocketConnection<Incoming, Outgoing> {
   readonly _rawWS: WebSocket;
@@ -108,6 +108,6 @@ export const AvailableColorsResponse = S.struct({
   colors: S.array(Color),
 });
 
-export type AvailableColorsResponse = S.Schema.To<
+export type AvailableColorsResponse = S.Schema.Type<
   typeof AvailableColorsResponse
 >;

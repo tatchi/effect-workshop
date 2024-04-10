@@ -61,11 +61,11 @@ type AllTrue<T extends boolean[]> = T extends [infer First, ...infer Rest]
       : never
     : false
   : true;
-type TestA = Types.Equals<A, S.Schema.To<typeof A>>;
-type TestB = Types.Equals<B, S.Schema.To<typeof B>>;
-type TestC = Types.Equals<C, S.Schema.To<typeof Cs>>;
-type TestD = Types.Equals<D, S.Schema.To<typeof D>>;
-type TestE = Types.Equals<E, S.Schema.To<typeof E>>;
+type TestA = Types.Equals<A, S.Schema.Type<typeof A>>;
+type TestB = Types.Equals<B, S.Schema.Type<typeof B>>;
+type TestC = Types.Equals<C, S.Schema.Type<typeof Cs>>;
+type TestD = Types.Equals<D, S.Schema.Type<typeof D>>;
+type TestE = Types.Equals<E, S.Schema.Type<typeof E>>;
 
 type AllTests = AllTrue<[TestA, TestB, TestC, TestD, TestE]>;
 //  ^^ This should be true
@@ -85,7 +85,7 @@ const URLFromString = S.transformOrFail(
     ParseResult.try({
       try: () => new URL(input),
       catch: (e) =>
-        ParseResult.type(
+        new ParseResult.Type(
           ast,
           input,
           e instanceof Error ? e.message : undefined

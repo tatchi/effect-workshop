@@ -238,7 +238,7 @@ const URLFromString = S.transformOrFail(
     ParseResult.try({
       try: () => new URL(string),
       catch: (e) =>
-        ParseResult.type(
+        new ParseResult.Type(
           ast,
           string,
           e instanceof Error ? e.message : undefined
@@ -252,7 +252,7 @@ const IsHttps = URLSchema.pipe(S.filter((url) => url.protocol === "https:"));
 const HttpsURL = S.compose(URLFromString, IsHttps);
 ```
 
-Using `transformOrFail` we can create a transformation that could error. `ParseResult.try` makes it easy to work with functions that could throw errors. `ParseResult.type` is used to create a parse result with a custom error message.
+Using `transformOrFail` we can create a transformation that could error. `ParseResult.try` makes it easy to work with functions that could throw errors. `new ParseResult.Type` is used to create a parse result with a custom error message.
 `S.filter` is used to filter out values that don't match a predicate.
 
 Finally, `S.compose` is used to compose two schemas together.

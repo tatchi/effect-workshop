@@ -84,6 +84,6 @@ const ASCIIString3 = S.string.pipe(
   S.brand(ASCIIString3Brand)
 );
 
-type ASCIIString3 = S.Schema.To<typeof ASCIIString3>; // string & Brand<"ASCIIString3">
+type ASCIIString3 = S.Schema.Type<typeof ASCIIString3>; // string & Brand<"ASCIIString3">
 
 const s22 = ASCIIString3("hello🌍");
